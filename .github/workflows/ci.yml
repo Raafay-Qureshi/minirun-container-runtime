@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest  # Use latest Ubuntu runner
     
     steps:
-    - uses: actions/checkout@v3  # Clone repository
+    - uses: actions/checkout@v4  # Clone repository
     
     - name: Install Dependencies
       run: |
@@ -38,7 +38,7 @@ jobs:
         ./scripts/deploy.sh --skip-tests  # Run quality checks only
     
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: binaries
         path: |
@@ -60,4 +60,5 @@ jobs:
     
     - name: Deploy to Production
       run: |
+
         echo "Deploying to production..."  # Add actual deployment commands here
