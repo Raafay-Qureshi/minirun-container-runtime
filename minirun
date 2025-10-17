@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import json
+import subprocess
+import argparse
+from pathlib import Path
+
+# Configuration
+# Use script's directory as project root instead of home directory
+# This ensures consistent paths when running with sudo
+PROJECT_DIR = Path(__file__).resolve().parent
+CONTAINERS_DIR = PROJECT_DIR / "containers"
+RUNTIME_BIN = PROJECT_DIR / "bin" / "container_runtime"
+DEFAULT_ROOTFS = PROJECT_DIR / "myroot"
+
+# Ensure directories exist
+CONTAINERS_DIR.mkdir(exist_ok=True)
+
+class MiniRun:
+    """MiniRun Container Manager"""
+    
+    def __init__(self):
+        self.containers_dir = CONTAINERS_DIR
+        
+    def create(self, name, rootfs=None, command="/bin/bash"):
+        """Create a new container configuration"""
+        rootfs = rootfs or str(DEFAULT_ROOTFS)
+        # Check if container already exists
+        config_file = self.containers_dir / f"{name}.json"
+
+        if config_file.exists():
+            print(f"❌ Container '{name}' already exists!")
+            return False
+        
+        # Create container config
+        config = {
+            "name": name,
+            "rootfs": rootfs,
+            "command": command,
+            "status": "created"
+        }
+        
+        # Save config
+        with open(config_file, 'w') as f:
+            json.dump(config, f, indent=2)
+        
+        print(f"✅ Container '{name}' created!")
+        print(f"   Root filesystem: {rootfs}")
+        print(f"   Command: {command}")
+        return True
+    
+    def start(self, name):
+        """Start a container"""
+        
+        config_file = self.containers_dir / f"{name}.json"
+        if not config_file.exists():
+            print(f"❌ Container '{name}' not found!")
+            print(f"   Create it first: minirun create {name}")
+            return False
+        
+        # Load config
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        
+        print(f"🚀 Starting container '{name}'...\n")
+        
+        # Run the C runtime
+        cmd = [
+            "sudo",
+            str(RUNTIME_BIN),
+            config["name"],
+            config["rootfs"],
+            config["command"]
+        ]
+        
+        try:
+            subprocess.run(cmd)
+        except KeyboardInterrupt:
+            print(f"\n\n⚠️  Container '{name}' interrupted")
+        
+        return True
+    
+    def list(self):
+        """List all containers"""
+        
+        containers = list(self.containers_dir.glob("*.json"))
+        
+        if not containers:
+            print("No containers found.")
+            print("Create one with: minirun create <name>")
+            return
+        
+        print("📦 Containers:")
+        print("-" * 50)
+        
+        for config_file in containers:
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+            
+            print(f"  • {config['name']}")
+            print(f"    Root: {config['rootfs']}")
+            print(f"    Command: {config['command']}")
+            print()
+    
+    def delete(self, name):
+        """Delete a container"""
+        
+        config_file = self.containers_dir / f"{name}.json"
+        if not config_file.exists():
+            print(f"❌ Container '{name}' not found!")
+            return False
+        
+        config_file.unlink()
+        print(f"✅ Container '{name}' deleted!")
+        return True
+    
+    def info(self, name):
+        """Show container information"""
+        
+        config_file = self.containers_dir / f"{name}.json"
+        if not config_file.exists():
+            print(f"❌ Container '{name}' not found!")
+            return False
+        
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        
+        print(f"📦 Container: {name}")
+        print("-" * 50)
+        print(f"Root filesystem: {config['rootfs']}")
+        print(f"Command: {config['command']}")
+        print(f"Status: {config['status']}")
+        return True
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="MiniRun - A minimal container runtime",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  minirun create myapp                    Create a container
+  minirun create webapp --command /bin/sh Create with custom command
+  minirun start myapp                     Start a container
+  minirun list                            List all containers
+  minirun info myapp                      Show container details
+  minirun delete myapp                    Delete a container
+        """
+    )
+    
+    subparsers = parser.add_subparsers(dest='action', help='Commands')
+    
+    # Create command
+    create_parser = subparsers.add_parser('create', help='Create a new container')
+    create_parser.add_argument('name', help='Container name')
+    create_parser.add_argument('--rootfs', help='Root filesystem path')
+    create_parser.add_argument('--command', default='/bin/bash', help='Command to run')
+    
+    # Start command
+    start_parser = subparsers.add_parser('start', help='Start a container')
+    start_parser.add_argument('name', help='Container name')
+    
+    # List command
+    subparsers.add_parser('list', help='List all containers')
+    
+    # Info command
+    info_parser = subparsers.add_parser('info', help='Show container info')
+    info_parser.add_argument('name', help='Container name')
+    
+    # Delete command
+    delete_parser = subparsers.add_parser('delete', help='Delete a container')
+    delete_parser.add_argument('name', help='Container name')
+    
+    args = parser.parse_args()
+    
+    if not args.action:
+        parser.print_help()
+        return
+    
+    # Initialize MiniRun
+    minirun = MiniRun()
+
+    # Execute command and exit with proper code
+    success = True
+    if args.action == 'create':
+        success = minirun.create(args.name, args.rootfs, args.command)
+    elif args.action == 'start':
+        success = minirun.start(args.name)
+    elif args.action == 'list':
+        minirun.list()
+    elif args.action == 'info':
+        success = minirun.info(args.name)
+    elif args.action == 'delete':
+        success = minirun.delete(args.name)
+    
+    # Exit with appropriate code
+    sys.exit(0 if success else 1)
+
+
+if __name__ == '__main__':
+    main()

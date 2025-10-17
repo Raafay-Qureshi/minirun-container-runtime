@@ -1,0 +1,25 @@
+aws_region    = "us-east-1"   # AWS region (us-east-1, us-west-2, etc.)
+environment   = "dev"          # Environment tag (dev, staging, prod)
+instance_type = "t3.medium"    # EC2 size: t3.small, t3.medium, t3.large
+
+ami_id = "ami-0c7217cdde317cfec"  # Ubuntu 22.04 LTS (us-east-1)
+# Other regions: us-west-2: ami-0735c191cf914754d
+
+# SSH Configuration - Option 1: Use existing key (recommended)
+existing_key_name = "my-existing-key"  # Your existing EC2 key pair name
+create_key_pair   = false
+
+# SSH Configuration - Option 2: Create new key (uncomment to use)
+# create_key_pair = true
+# public_key      = "ssh-rsa AAAAB3NzaC1yc2E... your-public-key"
+
+ssh_cidr_blocks = ["0.0.0.0/0"]  # Allow SSH from anywhere (SECURITY: restrict to ["1.2.3.4/32"])
+
+enable_elastic_ip = true  # Static IP address (recommended for API access)
+
+# PostgreSQL Configuration (optional - leave empty for file-based storage)
+db_host     = "your-rds-endpoint.region.rds.amazonaws.com"  # RDS endpoint or localhost
+db_port     = "5432"              # Standard PostgreSQL port
+db_user     = "minirun"           # Database username
+db_password = "your-secure-password"  # CHANGE THIS in production
+db_name     = "minirun"           # Database name

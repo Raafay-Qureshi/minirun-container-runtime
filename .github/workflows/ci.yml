@@ -1,0 +1,63 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]  # Trigger on push to main or develop
+  pull_request:
+    branches: [ main ]  # Trigger on PRs to main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Use latest Ubuntu runner
+    
+    steps:
+    - uses: actions/checkout@v3  # Clone repository
+    
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc python3 golang  # C, Python, Go compilers
+    
+    - name: Build C Runtime
+      run: |
+        gcc -o bin/container_runtime src/container_runtime.c -Wall -Wextra  # Compile with warnings
+    
+    - name: Run Tests
+      run: |
+        chmod +x tests/run_tests.sh
+        sudo ./tests/run_tests.sh  # Need sudo for namespace tests
+    
+    - name: Build Go Orchestrator
+      run: |
+        cd orchestrator
+        go build -o minirun-api main.go  # Build API binary
+    
+    - name: Code Quality Checks
+      run: |
+        chmod +x scripts/deploy.sh
+        ./scripts/deploy.sh --skip-tests  # Run quality checks only
+    
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: binaries
+        path: |
+          bin/container_runtime
+          orchestrator/minirun-api
+
+  deploy:
+    needs: build  # Wait for build job to complete
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'  # Only deploy from main branch
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Download Artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: binaries  # Get binaries from build job
+    
+    - name: Deploy to Production
+      run: |
+        echo "Deploying to production..."  # Add actual deployment commands here
